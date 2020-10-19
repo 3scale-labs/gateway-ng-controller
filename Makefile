@@ -4,7 +4,7 @@ COMPOSEFILE := $(PROJECT_PATH)/compose/docker-compose.yaml
 DOCKER_COMPOSE := docker-compose -f $(COMPOSEFILE)
 OPEN_APP ?= xdg-open
 
-.PHONY: fetch-protos help up stop status top kill down proxy-info proxy
+.PHONY: fetch-protos doc help up up-container up-local stop status top kill down proxy-info proxy
 
 # Check http://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
 fetch_protos: ## Fetch protobuf files
@@ -13,8 +13,28 @@ fetch_protos: ## Fetch protobuf files
 doc: ## open project documentation
 	$(Q) cargo doc --open
 
-up: ## Start docker-compose containers
+
+up-container: export CONTROL_PLANE_LOCAL=control-plane-alt
+up-container: export CONTROL_PLANE_DOCKER=control-plane-main
+up-container: # Launch docker-compose with the control-plane as a container
+	@echo "Launch mode: control-plane in container (use LOCAL_CP=y to use localhost)"
 	$(DOCKER_COMPOSE) up
+
+up-local: export CONTROL_PLANE_LOCAL=control-plane-main
+up-local: export CONTROL_PLANE_DOCKER=control-plane-alt
+up-local: # Launch docker-compose with the control-plane as a (pre-existing) local process
+	@echo "Launch mode: control-plane in localhost (use LOCAL_CP=n to use a container)"
+	$(DOCKER_COMPOSE) up
+
+up-deps =
+
+ifeq ($(LOCAL_CP),y)
+	up-deps = up-local
+else
+	up-deps = up-container
+endif
+
+up: $(up-deps) ## Start docker-compose containers
 
 stop: ## Stop docker-compose containers
 	$(DOCKER_COMPOSE) stop
