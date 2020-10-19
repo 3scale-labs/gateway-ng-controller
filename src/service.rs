@@ -90,6 +90,7 @@ impl Service {
                 nanos: 0,
             }),
             cluster_discovery_type: Some(ClusterDiscoveryType::Type(2)),
+            dns_refresh_rate: Some(core::time::Duration::from_secs(60).into()),
             // lb_policy: DiscoveryType::LogicalDns(),
             load_assignment: Some(ClusterLoadAssignment {
                 cluster_name: self.cluster_name(),
