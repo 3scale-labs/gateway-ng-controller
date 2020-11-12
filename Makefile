@@ -19,8 +19,19 @@ update_protos: ##  Update Protobuf files
 
 .PHONY: wasm_build
 wasm_build: ## Build wasm filter
-	$(Q) cargo build --target=wasm32-unknown-unknown --lib --manifest-path wasm_filter/Cargo.toml
-	$(Q) cp -fv wasm_filter/target/wasm32-unknown-unknown/debug/filter.wasm static/
+	$(Q) cargo build --target=wasm32-unknown-unknown --lib --manifest-path $(PROJECT_PATH)/wasm_filter/Cargo.toml
+	$(Q) cp -fv $(PROJECT_PATH)/wasm_filter/target/wasm32-unknown-unknown/debug/filter.wasm $(PROJECT_PATH)/static/
+
+.PHONY: auth-build
+auth-build: ## Build 3scale auth wasm filter
+	$(MAKE) -C $(PROJECT_PATH)/threescale-wasm-auth build
+	mkdir -p $(PROJECT_PATH)/compose/control-plane/static
+	cp -fv $(PROJECT_PATH)/threescale-wasm-auth/compose/wasm/threescale_wasm_auth.wasm $(PROJECT_PATH)/static/
+
+.PHONY: auth-build-clean
+auth-build-clean: ## Build 3scale auth wasm filter
+	rm -f $(PROJECT_PATH)/compose/control-plane/static/threescale_wasm_auth.wasm
+	$(MAKE) -C $(PROJECT_PATH)/threescale-wasm-auth clean
 
 doc: ## open project documentation
 	$(Q) cargo doc --open

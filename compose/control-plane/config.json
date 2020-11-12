@@ -1,7 +1,10 @@
 [
   {
     "id": 1,
-    "hosts": ["web", "web.app"],
+    "hosts": [
+      "web",
+      "web.app"
+    ],
     "policies": [],
     "target_domain": "http://web.app:80",
     "oidc_issuer": "http://keycloak:8080/auth/realms/ostia",
@@ -18,6 +21,96 @@
         "metric_system_name": "hits",
         "delta": 1
       }
-    ]
+    ],
+    "auth_config": {
+      "path": "static/threescale_wasm_auth.wasm",
+      "wasm_config": {
+        "system": {
+          "cluster_name": "a_cluster",
+          "url": "https://a-system-url/",
+          "token": "a system token",
+          "timeout": 5
+        },
+        "backend": {
+          "cluster_name": "3scale-saas-backend",
+          "url": "https://su1.3scale.net/",
+          "timeout": 5
+        },
+        "services": [
+          {
+            "id": "web_svc_id",
+            "token": "web_svc_token",
+            "authorities": [
+              "web",
+              "web.app"
+            ],
+            "credentials": [
+              {
+                "kind": "user_key",
+                "key": "x-api-key",
+                "locations": [
+                  "header",
+                  "query_string"
+                ]
+              }
+            ],
+            "mapping_rules": [
+              {
+                "method": "get",
+                "pattern": "/",
+                "usages": [
+                  {
+                    "name": "hits",
+                    "delta": 1
+                  }
+                ]
+              },
+              {
+                "method": "get",
+                "pattern": "/ticks",
+                "usages": [
+                  {
+                    "name": "ticks",
+                    "delta": 1
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "echo_svc_id",
+            "token": "echo_svc_token",
+            "authorities": [
+              "echo-api",
+              "echo-api.app",
+              "echoapi",
+              "echoapi.app"
+            ],
+            "credentials": [
+              {
+                "kind": "user_key",
+                "key": "x-api-key",
+                "locations": [
+                  "header",
+                  "query_string"
+                ]
+              }
+            ],
+            "mapping_rules": [
+              {
+                "method": "get",
+                "pattern": "/",
+                "usages": [
+                  {
+                    "name": "hits",
+                    "delta": 1
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
   }
 ]
