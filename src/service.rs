@@ -53,11 +53,17 @@ pub struct MappingRules {
     delta: u32,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct PoliciyConfig {
+    pub name: String,
+    configuration: serde_json::Value,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Service {
     pub id: u32,
     pub hosts: Vec<std::string::String>,
-    pub policies: Vec<std::string::String>,
+    pub policies: Vec<PoliciyConfig>,
     pub target_domain: std::string::String,
     pub proxy_rules: Vec<MappingRules>,
     pub oidc_issuer: Option<String>,

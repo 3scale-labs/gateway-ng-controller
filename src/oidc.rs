@@ -78,6 +78,7 @@ impl OIDCConfig {
 
         let provider = JwtProvider {
             issuer: self.issuer.clone(),
+            payload_in_metadata: "jwt_payload".to_string(),
             from_headers: vec![JwtHeader {
                 name: "Authorization".to_string(),
                 value_prefix: "Bearer ".to_string(),

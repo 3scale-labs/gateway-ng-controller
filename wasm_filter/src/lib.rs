@@ -5,6 +5,7 @@ use proxy_wasm::types::*;
 use std::time::Duration;
 
 mod config;
+mod jwt;
 
 const AUTH_BACKEND: &str = "httpbin";
 
@@ -28,7 +29,16 @@ impl Context for ConfigContext {}
 impl RootContext for ConfigContext {
     fn on_vm_start(&mut self, _: usize) -> bool {
         let config = self.get_configuration();
-        config::import_config(std::str::from_utf8(&config.unwrap()).unwrap());
+
+        let service = config::import_config(std::str::from_utf8(&config.unwrap()).unwrap());
+        for policy in &service.policies {
+            if policy.name.as_str() == "jwt" {
+                let cb =
+                    |context_id, _| -> Box<dyn HttpContext> { Box::new(jwt::JWT::new(context_id)) };
+                proxy_wasm::set_http_context(cb);
+            }
+        }
+
         self.set_tick_period(Duration::from_secs(20));
         true
     }

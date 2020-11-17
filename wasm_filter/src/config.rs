@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -31,10 +32,16 @@ impl MappingRule {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct PoliciyConfig {
+    pub name: String,
+    configuration: serde_json::Value,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Service {
     pub id: u32,
     pub hosts: Vec<String>,
-    pub policies: Vec<String>,
+    pub policies: Vec<PoliciyConfig>,
     pub target_domain: String,
     pub proxy_rules: Vec<MappingRule>,
 }

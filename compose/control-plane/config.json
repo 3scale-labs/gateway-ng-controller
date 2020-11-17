@@ -8,6 +8,20 @@
     "policies": [],
     "target_domain": "http://web.app:80",
     "oidc_issuer": "http://keycloak:8080/auth/realms/ostia",
+    "hosts": [
+      "web",
+      "web.app"
+    ],
+    "policies": [
+      {
+        "name": "jwt",
+        "configuration": {
+          "rules": [
+            "AA"
+          ]
+        }
+      }
+    ],
     "proxy_rules": [
       {
         "pattern": "/",
