@@ -10,3 +10,6 @@
 [submodule "protos/envoyproxy/protoc-gen-validate"]
 	path = protos/envoyproxy/protoc-gen-validate
 	url = https://github.com/envoyproxy/protoc-gen-validate
+[submodule "threescale-wasm-auth"]
+	path = threescale-wasm-auth
+	url = https://github.com/3scale-rs/threescale-wasm-auth

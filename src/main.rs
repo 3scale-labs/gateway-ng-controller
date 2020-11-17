@@ -14,6 +14,7 @@ mod processor;
 #[rustfmt::skip]
 mod protobuf;
 mod service;
+mod threescale_auth;
 mod util;
 
 use processor::MasterProcess;

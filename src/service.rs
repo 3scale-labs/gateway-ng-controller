@@ -8,6 +8,7 @@ use std::path::Path;
 
 use crate::envoy_helpers::{encode, get_envoy_cluster, EnvoyExport, EnvoyResource};
 use crate::oidc::OIDCConfig;
+use crate::threescale_auth::ThreescaleAuth;
 use crate::util;
 
 use crate::protobuf::envoy::config::core::v3::AsyncDataSource;
@@ -59,27 +60,19 @@ pub struct Service {
     pub policies: Vec<std::string::String>,
     pub target_domain: std::string::String,
     pub proxy_rules: Vec<MappingRules>,
-    pub oidc_issuer: std::string::String,
+    pub oidc_issuer: Option<String>,
+    pub auth_config: Option<ThreescaleAuth>,
 }
 
 impl Service {
-    pub fn oidc_import(&self) -> Result<(JwtAuthentication, Cluster)> {
-        let mut oidc_discovery = OIDCConfig::new(self.oidc_issuer.clone());
-        oidc_discovery.export(self.id)
+    pub fn oidc_import(&self) -> Option<Result<(JwtAuthentication, Cluster)>> {
+        self.oidc_issuer.as_ref().map(|oidc_issuer| {
+            let mut oidc_discovery = OIDCConfig::new(oidc_issuer.to_string());
+            oidc_discovery.export(self.id)
+        })
     }
 
     pub fn export(&self) -> Result<Vec<EnvoyExport>> {
-        let (oidc_filter, oidc_cluster) = self.oidc_import()?;
-
-        let oidc_envoy_filter = HttpFilter {
-            name: "envoy.filters.http.jwt_authn".to_string(),
-            config_type: Some(http_filter::ConfigType::TypedConfig(prost_types::Any {
-                type_url: "type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication"
-                    .to_string(),
-                value: encode(oidc_filter)?,
-            })),
-        };
-
         let mut result: Vec<EnvoyExport> = Vec::new();
         let cluster = self
             .export_clusters()
@@ -90,14 +83,41 @@ impl Service {
             config: EnvoyResource::Cluster(cluster),
         });
 
-        result.push(EnvoyExport {
-            key: oidc_cluster.clone().name,
-            config: EnvoyResource::Cluster(oidc_cluster),
-        });
+        let oidc_envoy_filter = match self.oidc_import() {
+            Some(oidc_import) => {
+                let (oidc_filter, oidc_cluster) = oidc_import?;
+
+                result.push(EnvoyExport {
+                    key: oidc_cluster.clone().name,
+                    config: EnvoyResource::Cluster(oidc_cluster),
+                });
+
+                Some(HttpFilter {
+                    name: "envoy.filters.http.jwt_authn".to_string(),
+                    config_type: Some(http_filter::ConfigType::TypedConfig(prost_types::Any {
+                        type_url: "type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication"
+                            .to_string(),
+                        value: encode(oidc_filter)?,
+                    })),
+                })
+            }
+            None => None,
+        };
+
+        // having a cluster is mandatory for this auth config, but it could
+        // be optional - we could just extract a trait to provide a cluster(s)
+        // and add them here if we wanted to make this code more generic
+        if let Some(ref auth_config) = self.auth_config {
+            let auth_cluster = auth_config.cluster()?;
+            result.push(EnvoyExport {
+                key: auth_cluster.name.clone(),
+                config: EnvoyResource::Cluster(auth_cluster),
+            });
+        }
 
         // Listener entries
         let listener = self
-            .export_listener(Some(oidc_envoy_filter))
+            .export_listener(oidc_envoy_filter)
             .with_context(|| format!("failed to export listener for service {}", self.id))?;
         result.push(EnvoyExport {
             key: format!("service::id::{}::listener", self.id),
@@ -150,8 +170,7 @@ impl Service {
                                     "wasm_files".to_string(),
                                 )),
                             }),
-                            sha256: self
-                                .get_wasm_filter_sha(WASM_FILTER_PATH)
+                            sha256: Self::get_wasm_filter_sha(WASM_FILTER_PATH)
                                 .context("could not compute SHA-256")?,
                             ..Default::default()
                         })),
@@ -163,9 +182,19 @@ impl Service {
         };
 
         let mut http_filters = Vec::new();
-
         if let Some(filter) = http_filter {
             http_filters.push(filter);
+        }
+
+        if let Some(ref threescale_auth) = self.auth_config {
+            http_filters.push(HttpFilter {
+                name: "envoy.filters.http.wasm".to_string(),
+                config_type: Some(http_filter::ConfigType::TypedConfig(prost_types::Any {
+                    type_url: "type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm"
+                        .to_string(),
+                    value: encode(threescale_auth.build_wasm(self.id)?)?,
+                })),
+            });
         }
 
         http_filters.push(HttpFilter {
@@ -235,7 +264,7 @@ impl Service {
         })
     }
 
-    fn get_wasm_filter_sha(&self, path: impl AsRef<Path>) -> Result<std::string::String> {
+    pub fn get_wasm_filter_sha(path: impl AsRef<Path>) -> Result<std::string::String> {
         let path = path.as_ref();
         let input = File::open(path)
             .with_context(|| format!("failed to open wasm filter: {}", path.display()))?;
